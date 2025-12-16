@@ -17,26 +17,14 @@ export default function DashboardLayout({
   useEffect(() => {
     console.log("🔍 Dashboard Layout - Checking authentication...")
     console.log("📍 Current pathname:", window.location.pathname)
-    console.log("⏰ Timestamp:", new Date().toISOString())
-
     const token = localStorage.getItem("facility_token");
     const userType = localStorage.getItem("user_type");
 
-    console.log("🔑 Token present:", token ? "Yes" : "No")
-    console.log("🔑 Token value:", token ? token.substring(0, 20) + "..." : "null")
-    console.log("👤 User type:", userType || "Not set")
-
-    // Check all localStorage items
-    const allKeys = Object.keys(localStorage)
-    console.log("💾 All localStorage keys:", allKeys)
-
     if (!token) {
-      console.log("❌ No token found, redirecting to login")
       router.push("/login");
       return;
     }
 
-    console.log("✅ Token found, allowing access to dashboard")
     setIsChecking(false);
   }, [router]);
 

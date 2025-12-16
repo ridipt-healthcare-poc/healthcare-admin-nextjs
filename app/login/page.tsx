@@ -25,21 +25,16 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      console.log("🔐 Attempting login with email:", email)
-
       // Try facility owner login first
       let response;
       let isStaff = false;
 
       try {
-        console.log("🏥 Trying facility owner login...")
         response = await api.post("/api/facility-auth/login", {
           email,
           password,
         })
-        console.log("✅ Facility owner login successful")
       } catch (facilityError: any) {
-        console.log("❌ Facility owner login failed, trying staff login...")
         // If facility login fails, try staff login
         try {
           response = await api.post("/api/facility-staff-auth/login", {
@@ -47,19 +42,14 @@ export default function LoginPage() {
             password,
           })
           isStaff = true;
-          console.log("✅ Staff login successful")
         } catch (staffError: any) {
-          console.log("❌ Both facility and staff login failed")
           // Both failed, show error
           throw facilityError; // Show the first error
         }
       }
 
-      console.log("📦 Login response:", response.data)
-
       if (response.data.success) {
         if (isStaff) {
-          console.log("👤 Processing staff login response")
           // Staff login response structure: { success, message, token, staff }
           localStorage.setItem("facility_token", response.data.token)
           localStorage.setItem("user_type", "staff")
@@ -76,47 +66,26 @@ export default function LoginPage() {
           // Store location data if staff is assigned to a specific branch
           if (response.data.staff.locationId && typeof response.data.staff.locationId === 'object') {
             localStorage.setItem("location_data", JSON.stringify(response.data.staff.locationId))
-            console.log("✅ Location data stored:", response.data.staff.locationId.branchName)
           }
-
-          console.log("💾 Staff data stored in localStorage")
-          console.log("🔑 Token:", response.data.token ? "Present" : "Missing")
-          console.log("👤 User type:", "staff")
-
-          // Verify storage immediately
-          const storedToken = localStorage.getItem("facility_token")
-          const storedUserType = localStorage.getItem("user_type")
-          console.log("🔍 Verification - Stored token:", storedToken ? "Present" : "Missing")
-          console.log("🔍 Verification - Stored user type:", storedUserType)
         } else {
-          console.log("🏥 Processing facility owner login response")
           // Facility owner login response structure: { success, data: { token, facility, facilityType } }
           localStorage.setItem("facility_token", response.data.data.token)
           localStorage.setItem("user_type", "owner")
           localStorage.setItem("facility_data", JSON.stringify(response.data.data.facility))
           localStorage.setItem("facility_type", response.data.data.facilityType)
-
-          console.log("💾 Owner data stored in localStorage")
-          console.log("🔑 Token:", response.data.data.token ? "Present" : "Missing")
-          console.log("👤 User type:", "owner")
         }
 
         toast.success("Login successful!")
-        console.log("🚀 Redirecting to dashboard...")
         
         // Add a small delay to ensure localStorage is written
         setTimeout(() => {
-          console.log("⏰ Pre-redirect check - Token in storage:", localStorage.getItem("facility_token") ? "Present" : "Missing")
           router.push("/dashboard")
         }, 100)
       } else {
-        console.log("❌ Login response success is false")
         // Handle case where success is false
         toast.error(response.data.message || "Login failed")
       }
     } catch (error: any) {
-      console.error("❌ Login error:", error)
-      console.error("❌ Error response:", error?.response?.data)
       const errorMsg = error?.response?.data?.message || error?.response?.data?.error || "Invalid credentials. Please try again."
       toast.error(errorMsg)
     } finally {
