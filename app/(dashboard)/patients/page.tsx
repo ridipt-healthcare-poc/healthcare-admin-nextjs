@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import PermissionGuard from "@/components/PermissionGuard";
 
 interface Patient {
   _id: string;
@@ -115,7 +116,10 @@ export default function PatientsPage() {
       }
     } catch (error: any) {
       console.error("Error fetching patients:", error);
-      toast.error(error.response?.data?.message || "Failed to fetch patients");
+      const message = error.response?.status === 403
+        ? "You don't have permission to view patients"
+        : error.response?.data?.message || "Failed to fetch patients";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -136,8 +140,25 @@ export default function PatientsPage() {
     setSubmitting(true);
 
     try {
+      // Get facilityId from localStorage - handle both owner and staff cases
+      const userType = localStorage.getItem("user_type") || "owner";
+      let facilityId;
+      
+      if (userType === "staff") {
+        const staffData = JSON.parse(localStorage.getItem("staff_data") || "{}");
+        facilityId = staffData.facilityId?._id || staffData.facilityId;
+      } else {
+        facilityId = facilityData?._id;
+      }
+
+      if (!facilityId) {
+        toast.error("Facility information not found. Please log in again.");
+        return;
+      }
+
       // Prepare data
       const patientData: any = {
+        facilityId: facilityId,
         fullName: formData.fullName,
         email: formData.email,
         mobile: formData.mobile,
@@ -200,8 +221,11 @@ export default function PatientsPage() {
       }
     } catch (error: any) {
       console.error("Error saving patient:", error);
-      const message =
-        error.response?.data?.message || "Failed to save patient";
+      const message = error.response?.status === 403
+        ? editingPatient 
+          ? "You don't have permission to update patients"
+          : "You don't have permission to create patients"
+        : error.response?.data?.message || "Failed to save patient";
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -246,7 +270,10 @@ export default function PatientsPage() {
       }
     } catch (error: any) {
       console.error("Error deleting patient:", error);
-      toast.error(error.response?.data?.message || "Failed to delete patient");
+      const message = error.response?.status === 403
+        ? "You don't have permission to delete patients"
+        : error.response?.data?.message || "Failed to delete patient";
+      toast.error(message);
     }
   };
 
@@ -259,7 +286,10 @@ export default function PatientsPage() {
       }
     } catch (error: any) {
       console.error("Error toggling status:", error);
-      toast.error(error.response?.data?.message || "Failed to update status");
+      const message = error.response?.status === 403
+        ? "You don't have permission to update patient status"
+        : error.response?.data?.message || "Failed to update status";
+      toast.error(message);
     }
   };
 
@@ -300,12 +330,13 @@ export default function PatientsPage() {
 
 
   return (
-    <main className="max-w-7xl mx-auto px-8 py-8">
-      {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Patients</h1>
-        <p className="text-gray-600">Manage your facility patients</p>
-      </div>
+    <PermissionGuard module="patients" action="read">
+      <main className="max-w-7xl mx-auto px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Patients</h1>
+          <p className="text-gray-600">Manage your facility patients</p>
+        </div>
 
       {/* Action Bar */}
       {!showForm && (
@@ -806,5 +837,6 @@ export default function PatientsPage() {
           </>
         )}
       </main>
+    </PermissionGuard>
   );
 }

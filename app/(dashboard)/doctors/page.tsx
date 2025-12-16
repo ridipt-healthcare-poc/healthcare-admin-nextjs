@@ -25,6 +25,7 @@ import {
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { LocationSelector } from "@/components/LocationSelector";
+import PermissionGuard from "@/components/PermissionGuard";
 
 
 interface Doctor {
@@ -290,8 +291,11 @@ export default function DoctorsPage() {
       }
     } catch (error: any) {
       console.error("Error saving doctor:", error);
-      const message =
-        error.response?.data?.message || "Failed to save doctor";
+      const message = error.response?.status === 403
+        ? editingDoctor
+          ? "You don't have permission to update doctors"
+          : "You don't have permission to create doctors"
+        : error.response?.data?.message || "Failed to save doctor";
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -382,9 +386,12 @@ export default function DoctorsPage() {
         toast.success("Doctor deleted successfully");
         fetchDoctors();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting doctor:", error);
-      toast.error("Failed to delete doctor");
+      const message = error.response?.status === 403
+        ? "You don't have permission to delete doctors"
+        : error.response?.data?.message || "Failed to delete doctor";
+      toast.error(message);
     }
   };
 
@@ -395,9 +402,12 @@ export default function DoctorsPage() {
         toast.success(response.data.message);
         fetchDoctors();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error toggling status:", error);
-      toast.error("Failed to update doctor status");
+      const message = error.response?.status === 403
+        ? "You don't have permission to update doctor status"
+        : error.response?.data?.message || "Failed to update doctor status";
+      toast.error(message);
     }
   };
 
@@ -474,12 +484,13 @@ export default function DoctorsPage() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-8 py-8">
-      {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Doctors</h1>
-        <p className="text-gray-600">Manage your facility's medical professionals</p>
-      </div>
+    <PermissionGuard module="doctors" action="read">
+      <div className="max-w-7xl mx-auto px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Doctors</h1>
+          <p className="text-gray-600">Manage your facility's medical professionals</p>
+        </div>
 
       {/* Action Bar */}
       {!showForm && (
@@ -1249,5 +1260,6 @@ export default function DoctorsPage() {
           </>
         )}
       </div>
+    </PermissionGuard>
   );
 }

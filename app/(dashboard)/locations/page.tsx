@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { locationService, type Location, type CreateLocationData } from "@/lib/locationApi";
 import { Plus, MapPin, Phone, Mail, Building2, Edit, Trash2, Star, Search, ChevronLeft, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import PermissionGuard from "@/components/PermissionGuard";
 
 export default function LocationsPage() {
   const router = useRouter();
@@ -41,9 +42,12 @@ export default function LocationsPage() {
       setLoading(true);
       const response = await locationService.getLocationsByFacility(facilityId);
       setLocations(response.data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading locations:", error);
-      toast.error("Failed to load locations");
+      const message = error.response?.status === 403
+        ? "You don't have permission to view locations"
+        : error.response?.data?.message || "Failed to load locations";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -59,7 +63,10 @@ export default function LocationsPage() {
         loadLocations(facilityData._id);
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete location");
+      const message = error.response?.status === 403
+        ? "You don't have permission to delete locations"
+        : error.response?.data?.message || "Failed to delete location";
+      toast.error(message);
     }
   };
 
@@ -70,8 +77,11 @@ export default function LocationsPage() {
       if (facilityData) {
         loadLocations(facilityData._id);
       }
-    } catch (error) {
-      toast.error("Failed to update location status");
+    } catch (error: any) {
+      const message = error.response?.status === 403
+        ? "You don't have permission to update location status"
+        : error.response?.data?.message || "Failed to update location status";
+      toast.error(message);
     }
   };
 
@@ -113,31 +123,29 @@ export default function LocationsPage() {
     );
   }
 
-  if (showForm) {
-    return (
-      <main className="flex-1 overflow-auto bg-gray-50">
-        <LocationForm
-          facilityId={facilityData?._id}
-          facilityType={facilityData?.facilityType}
-          location={editingLocation || undefined}
-          onClose={() => {
-            setShowForm(false);
-            setEditingLocation(null);
-            if (facilityData) loadLocations(facilityData._id);
-          }}
-        />
-      </main>
-    );
-  }
-
   return (
-    <main className="flex-1 overflow-auto bg-gray-50">
-      <div className="max-w-7xl mx-auto px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Locations</h1>
-          <p className="text-gray-600">Manage your facility branches and locations</p>
-        </div>
+    <PermissionGuard module="locations" action="read">
+      {showForm ? (
+        <main className="flex-1 overflow-auto bg-gray-50">
+          <LocationForm
+            facilityId={facilityData?._id}
+            facilityType={facilityData?.facilityType}
+            location={editingLocation || undefined}
+            onClose={() => {
+              setShowForm(false);
+              setEditingLocation(null);
+              if (facilityData) loadLocations(facilityData._id);
+            }}
+          />
+        </main>
+      ) : (
+        <main className="flex-1 overflow-auto bg-gray-50">
+          <div className="max-w-7xl mx-auto px-8 py-8">
+            {/* Page Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Locations</h1>
+              <p className="text-gray-600">Manage your facility branches and locations</p>
+            </div>
 
         {/* Action Bar */}
         <div className="flex items-center justify-between mb-6">
@@ -337,8 +345,10 @@ export default function LocationsPage() {
             ))}
           </div>
         )}
-      </div>
-    </main>
+          </div>
+        </main>
+      )}
+    </PermissionGuard>
   );
 }
 
@@ -406,7 +416,12 @@ function LocationForm({
       onClose();
     } catch (error: any) {
       console.error("Location save error:", error.response?.data);
-      toast.error(error.response?.data?.message || "Failed to save location");
+      const message = error.response?.status === 403
+        ? location
+          ? "You don't have permission to update locations"
+          : "You don't have permission to create locations"
+        : error.response?.data?.message || "Failed to save location";
+      toast.error(message);
     } finally {
       setSaving(false);
     }

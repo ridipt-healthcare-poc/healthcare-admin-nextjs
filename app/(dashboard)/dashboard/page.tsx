@@ -53,10 +53,44 @@ export default function DashboardPage() {
       return
     }
 
+    const userType = localStorage.getItem("user_type")
     const facilityData = localStorage.getItem("facility_data")
     const type = localStorage.getItem("facility_type")
-    
-    if (facilityData && type) {
+
+    if (userType === "staff") {
+      // For staff users, we might not have full facility data
+      // Use minimal data or fetch it separately
+      const staffData = localStorage.getItem("staff_data")
+      if (staffData) {
+        try {
+          const staff = JSON.parse(staffData)
+          // Create minimal facility object from staff data
+          const minimalFacility = {
+            _id: staff.facilityId?._id || staff.facilityId,
+            name: staff.facilityId?.name || "Facility",
+            email: "",
+            isActive: true,
+            isVerified: true,
+            facilityType: staff.facilityType
+          }
+          setFacility(minimalFacility)
+          setFacilityType(staff.facilityType)
+          // For staff, try to fetch data but don't fail if no permissions
+          try {
+            fetchDashboardData();
+          } catch (error) {
+            console.error("Error fetching dashboard data for staff:", error);
+            // Don't logout, just show empty dashboard
+          }
+        } catch (error) {
+          console.error("Error parsing staff data:", error)
+          handleLogout()
+        }
+      } else {
+        handleLogout()
+      }
+    } else if (facilityData && type) {
+      // For facility owners, use full facility data
       try {
         setFacility(JSON.parse(facilityData))
         setFacilityType(type)
@@ -74,51 +108,88 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch doctor stats
-      const doctorStatsRes = await api.get("/api/doctors/stats")
-      if (doctorStatsRes.data.success) {
-        setStats((prev) => ({
-          ...prev,
-          totalDoctors: doctorStatsRes.data.data.totalDoctors || 0,
-          activeDoctors: doctorStatsRes.data.data.activeDoctors || 0,
-        }))
+      // Check user permissions
+      const userType = localStorage.getItem("user_type");
+      const permissionsStr = localStorage.getItem("staff_permissions");
+      const permissions = permissionsStr ? JSON.parse(permissionsStr) : null;
+
+      // Helper to check if user has module access
+      const hasModuleAccess = (module: string) => {
+        if (userType === "owner") return true;
+        if (!permissions) return false;
+        
+        const moduleMap: Record<string, string> = {
+          doctors: "manageDoctors",
+          patients: "managePatients",
+          appointments: "manageAppointments",
+        };
+        
+        return permissions[moduleMap[module]] || false;
+      };
+
+      // Fetch doctor stats only if user has access
+      if (hasModuleAccess("doctors")) {
+        try {
+          const doctorStatsRes = await api.get("/api/doctors/stats");
+          if (doctorStatsRes.data.success) {
+            setStats((prev) => ({
+              ...prev,
+              totalDoctors: doctorStatsRes.data.data.totalDoctors || 0,
+              activeDoctors: doctorStatsRes.data.data.activeDoctors || 0,
+            }));
+          }
+
+          // Fetch recent doctors
+          const doctorsRes = await api.get("/api/doctors");
+          if (doctorsRes.data.success) {
+            setRecentDoctors(doctorsRes.data.data.slice(0, 5));
+          }
+        } catch (error) {
+          console.error("Error fetching doctor data:", error);
+        }
       }
 
-      // Fetch patient stats
-      const patientStatsRes = await api.get("/api/patients/stats")
-      if (patientStatsRes.data.success) {
-        setStats((prev) => ({
-          ...prev,
-          totalPatients: patientStatsRes.data.data.total || 0,
-          activePatients: patientStatsRes.data.data.active || 0,
-        }))
+      // Fetch patient stats only if user has access
+      if (hasModuleAccess("patients")) {
+        try {
+          const patientStatsRes = await api.get("/api/patients/stats");
+          if (patientStatsRes.data.success) {
+            setStats((prev) => ({
+              ...prev,
+              totalPatients: patientStatsRes.data.data.total || 0,
+              activePatients: patientStatsRes.data.data.active || 0,
+            }));
+          }
+
+          // Fetch recent patients
+          const patientsRes = await api.get("/api/patients");
+          if (patientsRes.data.success) {
+            setRecentPatients(patientsRes.data.data.slice(0, 5));
+          }
+        } catch (error) {
+          console.error("Error fetching patient data:", error);
+        }
       }
 
-      // Fetch recent doctors
-      const doctorsRes = await api.get("/api/doctors")
-      if (doctorsRes.data.success) {
-        setRecentDoctors(doctorsRes.data.data.slice(0, 5))
-      }
-
-      // Fetch recent patients
-      const patientsRes = await api.get("/api/patients")
-      if (patientsRes.data.success) {
-        setRecentPatients(patientsRes.data.data.slice(0, 5))
-      }
-
-      // Fetch appointment stats
-      const appointmentStatsRes = await api.get("/api/appointments/stats")
-      if (appointmentStatsRes.data.success) {
-        const appointmentData = appointmentStatsRes.data.data
-        setStats((prev) => ({
-          ...prev,
-          totalAppointments: appointmentData.total || 0,
-          scheduledAppointments: appointmentData.byStatus?.Scheduled || 0,
-          completedAppointments: appointmentData.byStatus?.Completed || 0,
-        }))
+      // Fetch appointment stats only if user has access
+      if (hasModuleAccess("appointments")) {
+        try {
+          const appointmentStatsRes = await api.get("/api/appointments/stats");
+          if (appointmentStatsRes.data.success) {
+            const appointmentData = appointmentStatsRes.data.data;
+            setStats((prev) => ({
+              ...prev,
+              totalAppointments: appointmentData.total || 0,
+              scheduledAppointments: appointmentData.byStatus?.Scheduled || 0,
+              completedAppointments: appointmentData.byStatus?.Completed || 0,
+            }));
+          }
+        } catch (error) {
+          console.error("Error fetching appointment data:", error);
+        }
       }
     } catch (error) {
-      console.error("Error fetching dashboard data:", error)
+      console.error("Error fetching dashboard data:", error);
     }
   }
 
@@ -126,6 +197,9 @@ export default function DashboardPage() {
     localStorage.removeItem("facility_token")
     localStorage.removeItem("facility_data")
     localStorage.removeItem("facility_type")
+    localStorage.removeItem("user_type")
+    localStorage.removeItem("staff_data")
+    localStorage.removeItem("staff_permissions")
     toast.success("Logged out successfully")
     router.push("/login")
   }

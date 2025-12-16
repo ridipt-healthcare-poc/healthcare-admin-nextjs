@@ -27,6 +27,7 @@ import {
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import PermissionGuard from "@/components/PermissionGuard";
 
 interface Doctor {
   _id: string;
@@ -167,7 +168,10 @@ export default function AppointmentsPage() {
         setAvailableSlots(response.data.data);
       }
     } catch (error: any) {
-      toast.error("Failed to fetch available slots");
+      const message = error.response?.status === 403
+        ? "You don't have permission to view available slots"
+        : error.response?.data?.message || "Failed to fetch available slots";
+      toast.error(message);
     }
   };
 
@@ -261,7 +265,10 @@ export default function AppointmentsPage() {
         fetchAppointments();
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to create appointment");
+      const message = error.response?.status === 403
+        ? "You don't have permission to create appointments"
+        : error.response?.data?.message || "Failed to create appointment";
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -275,7 +282,10 @@ export default function AppointmentsPage() {
         fetchAppointments();
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to update status");
+      const message = error.response?.status === 403
+        ? "You don't have permission to update appointment status"
+        : error.response?.data?.message || "Failed to update status";
+      toast.error(message);
     }
   };
 
@@ -291,7 +301,10 @@ export default function AppointmentsPage() {
         fetchAppointments();
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to cancel appointment");
+      const message = error.response?.status === 403
+        ? "You don't have permission to cancel appointments"
+        : error.response?.data?.message || "Failed to cancel appointment";
+      toast.error(message);
     }
   };
 
@@ -305,7 +318,10 @@ export default function AppointmentsPage() {
         fetchAppointments();
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete appointment");
+      const message = error.response?.status === 403
+        ? "You don't have permission to delete appointments"
+        : error.response?.data?.message || "Failed to delete appointment";
+      toast.error(message);
     }
   };
 
@@ -357,15 +373,16 @@ export default function AppointmentsPage() {
   };
 
   return (
-    <>
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-gray-50">
-        <div className="max-w-7xl mx-auto px-8 py-8">
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Appointments</h1>
-            <p className="text-gray-600">Manage and track all your appointments</p>
-          </div>
+    <PermissionGuard module="appointments" action="read">
+      <>
+        {/* Main Content */}
+        <main className="flex-1 overflow-auto bg-gray-50">
+          <div className="max-w-7xl mx-auto px-8 py-8">
+            {/* Page Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Appointments</h1>
+              <p className="text-gray-600">Manage and track all your appointments</p>
+            </div>
 
           {/* Action Bar */}
           {!showForm && (
@@ -899,6 +916,7 @@ export default function AppointmentsPage() {
           )}
         </div>
       </main >
-    </>
+      </>
+    </PermissionGuard>
   );
 }
