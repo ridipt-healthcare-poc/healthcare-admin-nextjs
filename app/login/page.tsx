@@ -73,6 +73,12 @@ export default function LoginPage() {
           }))
           localStorage.setItem("facility_type", response.data.staff.facilityType)
 
+          // Store location data if staff is assigned to a specific branch
+          if (response.data.staff.locationId && typeof response.data.staff.locationId === 'object') {
+            localStorage.setItem("location_data", JSON.stringify(response.data.staff.locationId))
+            console.log("✅ Location data stored:", response.data.staff.locationId.branchName)
+          }
+
           console.log("💾 Staff data stored in localStorage")
           console.log("🔑 Token:", response.data.token ? "Present" : "Missing")
           console.log("👤 User type:", "staff")

@@ -32,6 +32,7 @@ export default function Navbar({
   const [facilityType, setFacilityType] = useState<string>("");
   const [userType, setUserType] = useState<string>("owner");
   const [permissions, setPermissions] = useState<any>(null);
+  const [location, setLocation] = useState<any>(null);
 
   useEffect(() => {
     const facilityData = localStorage.getItem("facility_data");
@@ -39,6 +40,7 @@ export default function Navbar({
     const uType = localStorage.getItem("user_type") || "owner";
     const perms = localStorage.getItem("staff_permissions");
     const staffData = localStorage.getItem("staff_data");
+    const locationData = localStorage.getItem("location_data");
     
     if (uType === "staff" && staffData) {
       // For staff users, create minimal facility info
@@ -62,6 +64,9 @@ export default function Navbar({
     setUserType(uType);
     if (perms) {
       setPermissions(JSON.parse(perms));
+    }
+    if (locationData) {
+      setLocation(JSON.parse(locationData));
     }
   }, []);
 
@@ -96,6 +101,7 @@ export default function Navbar({
     localStorage.removeItem("user_type");
     localStorage.removeItem("staff_data");
     localStorage.removeItem("staff_permissions");
+    localStorage.removeItem("location_data");
     router.push("/login");
   };
 
@@ -112,7 +118,9 @@ export default function Navbar({
                 <h1 className="text-lg font-bold text-gray-900">
                   {facility?.name || "Facility"}
                 </h1>
-                <p className="text-xs text-gray-500 capitalize">{facilityType}</p>
+                <p className="text-xs text-gray-500 capitalize">
+                  {location ? `${location.branchName} - ${facilityType}` : facilityType}
+                </p>
               </div>
             </div>
 

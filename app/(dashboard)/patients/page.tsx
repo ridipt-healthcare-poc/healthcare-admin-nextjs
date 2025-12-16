@@ -25,6 +25,7 @@ import {
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import PermissionGuard from "@/components/PermissionGuard";
+import { locationService, type Location } from "@/lib/locationApi";
 
 interface Patient {
   _id: string;
@@ -56,6 +57,7 @@ interface Patient {
   profileImage?: string;
   isActive: boolean;
   isVerified: boolean;
+  locationIds?: string[];
 }
 
 export default function PatientsPage() {
@@ -67,6 +69,7 @@ export default function PatientsPage() {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [facilityData, setFacilityData] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [locations, setLocations] = useState<Location[]>([]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -90,6 +93,7 @@ export default function PatientsPage() {
     emergencyContactName: "",
     emergencyContactRelationship: "",
     emergencyContactPhone: "",
+    locationIds: [] as string[],
   });
 
   useEffect(() => {
@@ -106,6 +110,23 @@ export default function PatientsPage() {
 
     fetchPatients();
   }, []);
+
+  useEffect(() => {
+    if (facilityData?._id) {
+      fetchLocations();
+    }
+  }, [facilityData]);
+
+  const fetchLocations = async () => {
+    try {
+      const response = await locationService.getLocationsByFacility(facilityData._id);
+      if (response.success) {
+        setLocations(response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching locations:", error);
+    }
+  };
 
   const fetchPatients = async () => {
     try {
@@ -192,6 +213,7 @@ export default function PatientsPage() {
               phone: formData.emergencyContactPhone || undefined,
             }
           : undefined,
+        locationIds: formData.locationIds.length > 0 ? formData.locationIds : undefined,
       };
 
       // Add password only if provided (for new patients or password change)
@@ -255,6 +277,7 @@ export default function PatientsPage() {
       emergencyContactName: patient.emergencyContact?.name || "",
       emergencyContactRelationship: patient.emergencyContact?.relationship || "",
       emergencyContactPhone: patient.emergencyContact?.phone || "",
+      locationIds: patient.locationIds || [],
     });
     setShowForm(true);
   };
@@ -315,6 +338,7 @@ export default function PatientsPage() {
       emergencyContactName: "",
       emergencyContactRelationship: "",
       emergencyContactPhone: "",
+      locationIds: [],
     });
     setEditingPatient(null);
     setShowForm(false);
@@ -543,6 +567,47 @@ export default function PatientsPage() {
                         onChange={handleInputChange}
                         className="mt-1.5 border-gray-300 focus:border-green-500 focus:ring-green-500"
                       />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Location Assignment */}
+                <div className="bg-gradient-to-br from-blue-50/30 to-indigo-50/20 rounded-xl p-6 border border-blue-100/50">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-800">
+                    <MapPin className="h-5 w-5 text-blue-600" />
+                    Location Assignment
+                  </h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <Label className="text-gray-700 font-medium">Assigned Locations</Label>
+                      <p className="text-sm text-gray-500 mb-2">Select the hospital branches where this patient can receive care</p>
+                      <div className="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto bg-white">
+                        {locations.length > 0 ? (
+                          locations.map((location) => (
+                            <label key={location._id} className="flex items-center gap-2 py-1">
+                              <input
+                                type="checkbox"
+                                checked={formData.locationIds.includes(location._id)}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    locationIds: checked
+                                      ? [...prev.locationIds, location._id]
+                                      : prev.locationIds.filter(id => id !== location._id)
+                                  }));
+                                }}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              <span className="text-sm text-gray-700">
+                                {location.branchName} ({location.branchCode})
+                              </span>
+                            </label>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No locations available</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -794,6 +859,14 @@ export default function PatientsPage() {
                           <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
                           <span className="truncate">
                             {patient.address.city}{patient.address.state && `, ${patient.address.state}`}
+                          </span>
+                        </div>
+                      )}
+                      {patient.locationIds && patient.locationIds.length > 0 && (
+                        <div className="flex items-center gap-3 text-sm text-gray-700 bg-blue-50 rounded-lg p-2 border border-blue-200/50">
+                          <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                          <span className="truncate">
+                            {patient.locationIds.length} location{patient.locationIds.length > 1 ? 's' : ''} assigned
                           </span>
                         </div>
                       )}
