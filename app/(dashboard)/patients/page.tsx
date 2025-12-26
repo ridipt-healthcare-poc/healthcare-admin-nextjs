@@ -30,7 +30,7 @@ import { locationService, type Location } from "@/lib/locationApi";
 interface Patient {
   _id: string;
   fullName: string;
-  email: string;
+  email?: string;  // Made optional for multi-facility
   mobile: string;
   password?: string;
   gender?: string;
@@ -58,6 +58,16 @@ interface Patient {
   isActive: boolean;
   isVerified: boolean;
   locationIds?: string[];
+  // Multi-facility fields
+  currentFacility?: {
+    facilityId: string;
+    facilityType: string;
+    mrn: string;
+    registeredAt: string;
+    status: string;
+    notes?: string;
+  };
+  facilitiesCount?: number;
 }
 
 export default function PatientsPage() {
@@ -164,7 +174,7 @@ export default function PatientsPage() {
       // Get facilityId from localStorage - handle both owner and staff cases
       const userType = localStorage.getItem("user_type") || "owner";
       let facilityId;
-      
+
       if (userType === "staff") {
         const staffData = JSON.parse(localStorage.getItem("staff_data") || "{}");
         facilityId = staffData.facilityId?._id || staffData.facilityId;
@@ -189,12 +199,12 @@ export default function PatientsPage() {
         bloodGroup: formData.bloodGroup || undefined,
         address: (formData.street || formData.city || formData.state || formData.pincode)
           ? {
-              street: formData.street || undefined,
-              city: formData.city || undefined,
-              state: formData.state || undefined,
-              pincode: formData.pincode || undefined,
-              country: formData.country || "India",
-            }
+            street: formData.street || undefined,
+            city: formData.city || undefined,
+            state: formData.state || undefined,
+            pincode: formData.pincode || undefined,
+            country: formData.country || "India",
+          }
           : undefined,
         preferredContactMethod: formData.preferredContactMethod || undefined,
         knownAllergies: formData.knownAllergies
@@ -208,10 +218,10 @@ export default function PatientsPage() {
           : undefined,
         emergencyContact: (formData.emergencyContactName || formData.emergencyContactPhone)
           ? {
-              name: formData.emergencyContactName || undefined,
-              relationship: formData.emergencyContactRelationship || undefined,
-              phone: formData.emergencyContactPhone || undefined,
-            }
+            name: formData.emergencyContactName || undefined,
+            relationship: formData.emergencyContactRelationship || undefined,
+            phone: formData.emergencyContactPhone || undefined,
+          }
           : undefined,
         locationIds: formData.locationIds.length > 0 ? formData.locationIds : undefined,
       };
@@ -236,19 +246,51 @@ export default function PatientsPage() {
         // Add new patient
         const response = await api.post("/api/patients", patientData);
         if (response.data.success) {
-          toast.success("Patient added successfully");
+          const message = response.data.isExistingPatient
+            ? "Patient already exists and has been added to this facility"
+            : "Patient created successfully and registered at this facility";
+          toast.success(message);
           fetchPatients();
           resetForm();
         }
       }
     } catch (error: any) {
       console.error("Error saving patient:", error);
-      const message = error.response?.status === 403
-        ? editingPatient 
-          ? "You don't have permission to update patients"
-          : "You don't have permission to create patients"
-        : error.response?.data?.message || "Failed to save patient";
-      toast.error(message);
+
+      // Handle name mismatch error
+      if (error.response?.data?.code === 'NAME_MISMATCH') {
+        const existingPatient = error.response.data.existingPatient;
+
+        const confirmed = confirm(
+          `⚠️ Mobile Number Already Registered\n\n` +
+          `This mobile number (${existingPatient.mobile}) is registered to:\n\n` +
+          `Name: ${existingPatient.fullName}\n` +
+          `Email: ${existingPatient.email || 'N/A'}\n` +
+          `Registered at: ${existingPatient.facilitiesCount} ${existingPatient.facilitiesCount === 1 ? 'facility' : 'facilities'}\n\n` +
+          `Did you mean to add "${existingPatient.fullName}" to this facility?\n\n` +
+          `Click OK to use the correct name, or Cancel to review.`
+        );
+
+        if (confirmed) {
+          // Auto-fill with correct name
+          setFormData(prev => ({
+            ...prev,
+            fullName: existingPatient.fullName,
+            email: existingPatient.email || prev.email
+          }));
+          toast.info(`Name updated to "${existingPatient.fullName}". Please submit again.`);
+        } else {
+          toast.warning('Please verify the patient information before submitting.');
+        }
+      } else {
+        // Handle other errors
+        const message = error.response?.status === 403
+          ? editingPatient
+            ? "You don't have permission to update patients"
+            : "You don't have permission to create patients"
+          : error.response?.data?.message || "Failed to save patient";
+        toast.error(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -346,7 +388,7 @@ export default function PatientsPage() {
 
   const filteredPatients = patients.filter((patient) =>
     patient.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    patient.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    patient.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     patient.mobile.includes(searchQuery)
   );
 
@@ -362,27 +404,27 @@ export default function PatientsPage() {
           <p className="text-gray-600">Manage your facility patients</p>
         </div>
 
-      {/* Action Bar */}
-      {!showForm && (
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
+        {/* Action Bar */}
+        {!showForm && (
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Back
+              </button>
+            </div>
             <button
-              onClick={() => router.push("/dashboard")}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
             >
-              <ChevronLeft className="w-4 h-4" />
-              Back
+              <Plus className="w-5 h-5" />
+              Add Patient
             </button>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
-          >
-            <Plus className="w-5 h-5" />
-            Add Patient
-          </button>
-        </div>
-      )}
+        )}
 
         {showForm ? (
           <Card className="border-gray-200/50 shadow-xl bg-white/80 backdrop-blur-sm">
@@ -413,15 +455,14 @@ export default function PatientsPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="email" className="text-gray-700 font-medium">Email *</Label>
+                      <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
                       <Input
                         id="email"
                         name="email"
                         type="email"
-                        placeholder="patient@example.com"
+                        placeholder="patient@example.com (optional)"
                         value={formData.email}
                         onChange={handleInputChange}
-                        required
                         className="mt-1.5 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
@@ -434,8 +475,12 @@ export default function PatientsPage() {
                         value={formData.mobile}
                         onChange={handleInputChange}
                         required
-                        className="mt-1.5 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                        disabled={!!editingPatient}
+                        className="mt-1.5 border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
+                      {editingPatient && (
+                        <p className="text-xs text-gray-500 mt-1">Mobile number cannot be changed</p>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="gender" className="text-gray-700 font-medium">Gender</Label>
@@ -733,15 +778,15 @@ export default function PatientsPage() {
 
                 {/* Action Buttons */}
                 <div className="flex gap-3 justify-end pt-6 border-t border-gray-200">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={resetForm}
                     className="rounded-xl hover:bg-gray-50 font-semibold px-6"
                   >
                     Cancel
                   </Button>
-                  <Button 
+                  <Button
                     type="submit"
                     disabled={submitting}
                     className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg shadow-purple-500/30 rounded-xl font-semibold px-8 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -802,8 +847,8 @@ export default function PatientsPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredPatients.map((patient) => (
-                  <div 
-                    key={patient._id} 
+                  <div
+                    key={patient._id}
                     className="border border-gray-100 rounded-xl shadow-sm bg-white p-6 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start justify-between mb-4">
@@ -840,9 +885,15 @@ export default function PatientsPage() {
                     </div>
 
                     <div className="space-y-2.5 mb-4">
+                      {patient.currentFacility?.mrn && (
+                        <div className="flex items-center gap-3 text-sm font-medium text-purple-700 bg-purple-50 rounded-lg p-2 border border-purple-200/50">
+                          <UserRound className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                          <span>MRN: {patient.currentFacility.mrn}</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 text-sm text-gray-700 bg-gray-50 rounded-lg p-2">
                         <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                        <span className="truncate">{patient.email}</span>
+                        <span className="truncate">{patient.email || 'No email'}</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm text-gray-700 bg-gray-50 rounded-lg p-2">
                         <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
@@ -868,6 +919,12 @@ export default function PatientsPage() {
                           <span className="truncate">
                             {patient.locationIds.length} location{patient.locationIds.length > 1 ? 's' : ''} assigned
                           </span>
+                        </div>
+                      )}
+                      {patient.facilitiesCount && patient.facilitiesCount > 1 && (
+                        <div className="flex items-center gap-3 text-sm text-blue-700 bg-blue-50 rounded-lg p-2 border border-blue-200/50">
+                          <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                          <span>Registered at {patient.facilitiesCount} facilities</span>
                         </div>
                       )}
                     </div>
