@@ -43,3 +43,6 @@ next-env.d.ts
 
 # turbopack
 .turbopack
+
+# Local Netlify folder
+.netlify
