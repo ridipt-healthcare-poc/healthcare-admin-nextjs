@@ -3,7 +3,7 @@
 
 [build.environment]
   NODE_VERSION = "20.11.1"
-  NEXT_PUBLIC_API_URL = "https://healthcare-backend-v2-xp4h.onrender.com"
+  NEXT_PUBLIC_API_URL = "https://backend.medsparsh.com"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
