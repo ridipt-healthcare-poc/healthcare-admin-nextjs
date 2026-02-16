@@ -1,0 +1,20 @@
+{
+  "hosting": {
+    "site": "medsparsh",
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/hospital/**",
+        "run": {
+          "serviceId": "hospital-ui",
+          "region": "asia-south1"
+        }
+      }
+    ]
+  }
+}
